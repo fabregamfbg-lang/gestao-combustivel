@@ -19,7 +19,7 @@ st.markdown("""
 # 2. CONEXÃO COM GOOGLE SHEETS
 # Mude a conexão para esta forma direta:
 # Substitua o link abaixo PELO LINK DA SUA PLANILHA (o link real do navegador)
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1900KpIS6XXANllpWSqqVaUFkUFYXcvcGXW2cf3V6UDY/edit?gid=1425248762#gid=1425248762"
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1900KpIS6XXANllpWSqqVaUFkUFYXcvcGXW2cf3V6UDY/edit"
 
 def carregar_dados_nuvem():
     try:
