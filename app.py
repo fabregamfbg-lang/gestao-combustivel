@@ -17,12 +17,10 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # 2. CONEXÃO COM GOOGLE SHEETS
-# Nota: Você precisará configurar o URL da planilha nos Secrets do Streamlit Cloud
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def carregar_dados_nuvem():
     try:
-        # Tenta ler os dados. Se a planilha estiver vazia, retorna DF vazio
         return conn.read(ttl=0) 
     except:
         return pd.DataFrame(columns=[
@@ -30,13 +28,13 @@ def carregar_dados_nuvem():
             "KM Atual", "Litros", "Valor Total", "Tipo Combustível"
         ])
 
-# 3. INTERFACE LATERAL (ROLE-BASED ACCESS)
+# 3. INTERFACE LATERAL
 st.sidebar.image("https://cdn-icons-png.flaticon.com/512/3408/3408506.png", width=100)
 st.sidebar.title("Frota Inteligente")
 perfil = st.sidebar.selectbox("Módulo de Acesso", ["Motorista", "Gestor Administrativo"])
 
 # ---------------------------------------------------------
-# MÓDULO MOTORISTA (SIMPLES E DIRETO)
+# MÓDULO MOTORISTA
 # ---------------------------------------------------------
 if perfil == "Motorista":
     st.title("⛽ Registro de Atividade")
@@ -58,7 +56,6 @@ if perfil == "Motorista":
 
     if submit:
         if nome and placa and km > 0:
-            # Lógica para salvar no Google Sheets
             df_existente = carregar_dados_nuvem()
             novo_dado = pd.DataFrame([[data.strftime("%Y-%m-%d"), nome, veiculo, placa, km, 0, valor, comb]], 
                                      columns=df_existente.columns)
@@ -69,29 +66,25 @@ if perfil == "Motorista":
             st.warning("⚠️ Preencha todos os campos obrigatórios.")
 
 # ---------------------------------------------------------
-# MÓDULO GESTOR (PROTEGIDO POR SENHA)
+# MÓDULO GESTOR
 # ---------------------------------------------------------
 else:
     st.title("📊 Painel de Controle Estratégico")
     
-    # CONTROLE DE ACESSO
     senha = st.sidebar.text_input("Senha de Acesso", type="password")
     
-    if senha == "admin123": # Altere para sua senha preferida
+    if senha == "admin123":
         st.sidebar.success("Acesso Autorizado")
-        
         df = carregar_dados_nuvem()
         
         if df.empty:
             st.warning("Aguardando primeiros registros da frota.")
         else:
-            # MÉTRICAS EM CARTÕES PROFISSIONAIS
             m1, m2, m3 = st.columns(3)
             m1.metric("Gasto Total Acumulado", f"R$ {df['Valor Total'].sum():,.2f}")
             m2.metric("Média de Abastecimento", f"R$ {df['Valor Total'].mean():,.2f}")
             m3.metric("Veículos Ativos", df['Veículo'].nunique())
             
-            # GRÁFICOS
             st.markdown("### Análise de Custos por Veículo")
             fig = px.bar(df, x="Veículo", y="Valor Total", color="Tipo Combustível", 
                          template="plotly_dark", barmode="group")
@@ -100,7 +93,6 @@ else:
             st.markdown("### Histórico de Lançamentos")
             st.dataframe(df, use_container_width=True)
             
-            # DOWNLOAD
             csv = df.to_csv(index=False).encode('utf-8')
             st.download_button("Exportar Dados para Excel (CSV)", csv, "relatorio_frota.csv", "text/csv")
             
@@ -108,25 +100,3 @@ else:
         st.warning("Por favor, insira a senha no menu lateral para visualizar os dados.")
     else:
         st.error("❌ Senha incorreta. O acesso ao painel de gestão é restrito.")
-
-### Passo 2: Como conectar a Planilha do Google
-
-#Como você não entende de programação, siga este guia visual simplificado:
-
-1.  **Crie a Planilha:** No seu Google Drive, crie uma planilha e chame-a de `Dados_Frota`. Na primeira linha, coloque exatamente estes nomes nas colunas: `Data`, `Motorista`, `Veículo`, `Placa`, `KM Atual`, `Litros`, `Valor Total`, `Tipo Combustível`.
-2.  **Torne-a Pública (Para Teste Inicial):** Clique em **Compartilhar** -> **Qualquer pessoa com o link** -> **Editor**. Copie o link da planilha.
-3.  **Configuração no Streamlit Cloud:**
-    *   No painel do seu app no Streamlit Cloud, vá em **Settings** -> **Secrets**.
-    *   Cole o seguinte código lá (substituindo pelo seu link):
-        ```toml
-        public_gsheets_url = "COLE_AQUI_O_LINK_DA_SUA_PLANILHA"
-        4.  **No arquivo `requirements.txt` do GitHub, adicione:**
-    ```text
-    streamlit
-    pandas
-    plotly
-    st-gsheets-connection
-    
-Dessa forma, o seu aplicativo se torna uma ferramenta profissional: os dados não somem, o visual impressiona os gestores e você garante que motoristas não vejam informações financeiras sigilosas!
-
-O que achou deste novo visual e da estrutura de segurança? Se estiver pronto, podemos avançar para os testes reais!
