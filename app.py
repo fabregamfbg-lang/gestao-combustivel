@@ -17,16 +17,20 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # 2. CONEXÃO COM GOOGLE SHEETS
-conn = st.connection("gsheets", type=GSheetsConnection)
+# Mude a conexão para esta forma direta:
+# Substitua o link abaixo PELO LINK DA SUA PLANILHA (o link real do navegador)
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1900KpIS6XXANllpWSqqVaUFkUFYXcvcGXW2cf3V6UDY/edit?gid=1425248762#gid=1425248762"
 
 def carregar_dados_nuvem():
     try:
-        return conn.read(ttl=0) 
-    except:
-        return pd.DataFrame(columns=[
-            "Data", "Motorista", "Veículo", "Placa", 
-            "KM Atual", "Litros", "Valor Total", "Tipo Combustível"
-        ])
+        # Lemos a planilha diretamente pelo link
+        return conn.read(spreadsheet=SHEET_URL, ttl=0)
+    except Exception as e:
+        st.error(f"Erro na conexão: {e}")
+        return pd.DataFrame()
+
+# E certifique-se de que a conexão conn foi inicializada logo acima:
+conn = st.connection("gsheets", type=GSheetsConnection)
 
 # 3. INTERFACE LATERAL
 st.sidebar.image("https://cdn-icons-png.flaticon.com/512/3408/3408506.png", width=100)
