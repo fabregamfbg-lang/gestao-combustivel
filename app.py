@@ -51,7 +51,7 @@ if perfil == "Motorista":
     st.info("Após enviar o formulário, os dados serão processados pela central.")
 
 # ---------------------------------------------------------
-# MÓDULO GESTOR
+# MÓDULO GESTOR (VERSÃO DE DIAGNÓSTICO)
 # ---------------------------------------------------------
 else:
     st.title("📊 Painel de Controle Estratégico")
@@ -60,28 +60,30 @@ else:
     
     if senha == "admin123":
         st.sidebar.success("Acesso Autorizado")
-        df = carregar_dados_nuvem()
         
-        if df.empty:
-            st.warning("Aguardando primeiros registros da frota.")
-        else:
-            m1, m2, m3 = st.columns(3)
-            m1.metric("Gasto Total Acumulado", f"R$ {df['Valor Total'].sum():,.2f}")
-            m2.metric("Média de Abastecimento", f"R$ {df['Valor Total'].mean():,.2f}")
-            m3.metric("Veículos Ativos", df['Veículo'].nunique())
+        # Tenta ler a planilha e mostra o que ele encontrou
+        try:
+            df = conn.read(ttl=0)
             
-            st.markdown("### Análise de Custos por Veículo")
-            fig = px.bar(df, x="Veículo", y="Valor Total", color="Tipo Combustível", 
-                         template="plotly_dark", barmode="group")
-            st.plotly_chart(fig, use_container_width=True)
-            
-            st.markdown("### Histórico de Lançamentos")
-            st.dataframe(df, use_container_width=True)
-            
-            csv = df.to_csv(index=False).encode('utf-8')
-            st.download_button("Exportar Dados para Excel (CSV)", csv, "relatorio_frota.csv", "text/csv")
+            if df is None or df.empty:
+                st.warning("O arquivo foi lido, mas a planilha está vazia.")
+            else:
+                st.success(f"Dados carregados! Total de linhas encontradas: {len(df)}")
+                st.write("Colunas detectadas:", df.columns.tolist()) # Isso vai nos revelar o problema
+                
+                # Exibição dos dados
+                st.dataframe(df)
+                
+                # Métricas e Gráficos (se as colunas baterem)
+                if 'Valor Total' in df.columns:
+                    st.metric("Gasto Total", f"R$ {df['Valor Total'].sum():,.2f}")
+                else:
+                    st.error("A coluna 'Valor Total' não foi encontrada. Verifique se o nome na planilha está idêntico.")
+        
+        except Exception as e:
+            st.error(f"Erro ao ler a planilha: {e}")
             
     elif senha == "":
-        st.warning("Por favor, insira a senha no menu lateral para visualizar os dados.")
+        st.warning("Insira a senha.")
     else:
-        st.error("❌ Senha incorreta. O acesso ao painel de gestão é restrito.")
+        st.error("Senha incorreta.")
