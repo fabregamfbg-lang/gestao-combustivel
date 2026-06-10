@@ -44,7 +44,7 @@ if perfil == "Motorista":
     st.markdown("Clique no botão abaixo para registrar um novo abastecimento.")
     
     # Substitua o link abaixo pelo link real do seu formulário
-    url_formulario = "https://docs.google.com/forms/d/sua-url-aqui"
+    url_formulario = "https://forms.gle/e3tVoSTAFGGU3T787"
     
     st.link_button("ABRIR FORMULÁRIO DE ABASTECIMENTO", url_formulario)
     
