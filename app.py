@@ -111,7 +111,7 @@ else:
 
 ### Passo 2: Como conectar a Planilha do Google
 
-Como você não entende de programação, siga este guia visual simplificado:
+#Como você não entende de programação, siga este guia visual simplificado:
 
 1.  **Crie a Planilha:** No seu Google Drive, crie uma planilha e chame-a de `Dados_Frota`. Na primeira linha, coloque exatamente estes nomes nas colunas: `Data`, `Motorista`, `Veículo`, `Placa`, `KM Atual`, `Litros`, `Valor Total`, `Tipo Combustível`.
 2.  **Torne-a Pública (Para Teste Inicial):** Clique em **Compartilhar** -> **Qualquer pessoa com o link** -> **Editor**. Copie o link da planilha.
