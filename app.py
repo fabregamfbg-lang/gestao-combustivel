@@ -36,34 +36,19 @@ perfil = st.sidebar.selectbox("Módulo de Acesso", ["Motorista", "Gestor Adminis
 # ---------------------------------------------------------
 # MÓDULO MOTORISTA
 # ---------------------------------------------------------
+# ---------------------------------------------------------
+# MÓDULO MOTORISTA (AGORA VIA GOOGLE FORMS)
+# ---------------------------------------------------------
 if perfil == "Motorista":
     st.title("⛽ Registro de Atividade")
-    st.info("Preencha os dados com atenção. O registro é enviado diretamente à central.")
+    st.markdown("Clique no botão abaixo para registrar um novo abastecimento.")
     
-    with st.form("abastecimento"):
-        c1, c2 = st.columns(2)
-        with c1:
-            nome = st.text_input("Motorista")
-            veiculo = st.text_input("Veículo (Modelo)")
-            placa = st.text_input("Placa").upper()
-        with c2:
-            km = st.number_input("Quilometragem Atual", min_value=0)
-            valor = st.number_input("Valor Total (R$)", min_value=0.0)
-            comb = st.selectbox("Combustível", ["Diesel", "Gasolina", "Etanol", "GNV"])
-        
-        data = st.date_input("Data")
-        submit = st.form_submit_button("ENVIAR DADOS")
-
-    if submit:
-        if nome and placa and km > 0:
-            df_existente = carregar_dados_nuvem()
-            novo_dado = pd.DataFrame([[data.strftime("%Y-%m-%d"), nome, veiculo, placa, km, 0, valor, comb]], 
-                                     columns=df_existente.columns)
-            df_final = pd.concat([df_existente, novo_dado], ignore_index=True)
-            conn.update(data=df_final)
-            st.success("✅ Dados enviados com sucesso!")
-        else:
-            st.warning("⚠️ Preencha todos os campos obrigatórios.")
+    # Substitua o link abaixo pelo link real do seu formulário
+    url_formulario = "https://docs.google.com/forms/d/sua-url-aqui"
+    
+    st.link_button("ABRIR FORMULÁRIO DE ABASTECIMENTO", url_formulario)
+    
+    st.info("Após enviar o formulário, os dados serão processados pela central.")
 
 # ---------------------------------------------------------
 # MÓDULO GESTOR
