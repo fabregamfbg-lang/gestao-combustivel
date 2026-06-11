@@ -159,15 +159,13 @@ else:
     st.sidebar.markdown("### Filtros")
     
     def selectbox_col(df, col_veic, label, unique_key=None):
-    # Garante que o df não está vazio e que a coluna realmente existe nele
     if df is not None and not df.empty and col_veic in df.columns:
         opts = ["Todos"] + sorted(df[col_veic].dropna().unique().tolist())
         return st.sidebar.selectbox(label, opts, key=unique_key)
-    
     else:
-        # Se a planilha estiver vazia ou a coluna não existir, mostra um aviso básico
         return st.sidebar.selectbox(label, ["Todos"], key=unique_key)
     
+        
     # Veiculo
     if "Veiculo" in df.columns:
         opts_veic = ["Todos"] + sorted(df["Veiculo"].dropna().unique().tolist())
