@@ -1,4 +1,4 @@
-// Revised Streamlit app with improved structure, caching, security, and UI enhancements
+Revised Streamlit app with improved structure, caching, security, and UI enhancements
 
 import streamlit as st
 import pandas as pd
