@@ -123,7 +123,7 @@ def selectbox_col(df, target_col, label, unique_key):
 # ---------------------------------------------------------------------------
 # 4. SIDEBAR - NAVEGAÇÃO E AUTENTICAÇÃO DE ACESSO
 # ---------------------------------------------------------------------------
-st.sidebar.image("https://cdn-icons-png.flaticon.com/512/3408/3408506.png", width=90)
+st.sidebar.image("https://scontent.fpmw7-1.fna.fbcdn.net/v/t39.30808-6/273627335_101182425835277_7485276832228659162_n.png?stp=dst-png&cstp=mx1080x1080&ctp=s1080x1080&_nc_cat=105&ccb=1-7&_nc_sid=6ee11a&_nc_ohc=ivNAPsoTv2sQ7kNvwEqvdcO&_nc_oc=Adomvgqa6BxKjEVl79KUN-jsk4iGK3RJgOvDbpaFjgckCLkzpdW1XMhpayVbN2y_5-k&_nc_zt=23&_nc_ht=scontent.fpmw7-1.fna&_nc_gid=X75YFM-3tC2XHTm6b3e7PA&_nc_ss=7b289&oh=00_Af9ysk9XqA8U-ltwgunDRTyalmp10RK1l3FX-iemQsp0fA&oe=6A30B368", width=90)
 st.sidebar.title("Gestão de Combustível")
 
 perfil = st.sidebar.selectbox("Módulo de Acesso", ["Motorista", "Gestor Administrativo"])
