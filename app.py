@@ -7,7 +7,7 @@ from streamlit_gsheets import GSheetsConnection
 # ---------------------------------------------------------------------------
 # -- Pagina ------------------------------------------------------------------
 st.set_page_config(
-    page_title="Frota Inteligente Pro",
+    page_title="Gestão de Combustível",
     page_icon="🚚",
     layout="wide",
     initial_sidebar_state="expanded",
