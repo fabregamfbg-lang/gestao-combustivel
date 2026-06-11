@@ -2,16 +2,17 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from streamlit_gsheets import GSheetsConnection
+
 # ---------------------------------------------------------------------------
-# 1. Configuração da página
+# 1. CONFIGURAÇÃO DA PÁGINA & ESTILIZAÇÃO CSS
 # ---------------------------------------------------------------------------
-# -- Pagina ------------------------------------------------------------------
 st.set_page_config(
     page_title="Gestão de Combustível",
     page_icon="🚚",
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
 st.markdown("""
     <style>
         .main { background-color: #0f172a; }
@@ -39,29 +40,28 @@ st.markdown("""
         [data-testid="stSidebar"] { background-color: #0f172a; }
         .block-container { padding-top: 1.5rem; }
     </style>
-<style>
-.main{background-color:#0f172a}
-section[data-testid="stSidebar"]{background-color:#0f172a}
-div[data-testid="stMetric"]{background-color:#1e293b;padding:18px 22px;border-radius:14px;border:1px solid #334155}
-.stButton>button{background-color:#10b981;color:white;border-radius:10px;width:100%;font-weight:600}
-.stDownloadButton>button{background-color:#3b82f6;color:white;border-radius:10px;width:100%;font-weight:600}
-.block-container{padding-top:1.5rem}
-</style>
 """, unsafe_allow_html=True)
+
 # ---------------------------------------------------------------------------
-# 2. Constantes & Secrets
+# 2. CONSTANTES, CONEXÃO & SECRETS
 # ---------------------------------------------------------------------------
-# -- Conexao ----------------------------------------------------------------
 SHEET_URL = st.secrets.get(
     "gsheets_url",
     "https://docs.google.com/spreadsheets/d/1900KpIS6XXANllpWSqqVaUFkUFYXcvcGXW2cf3V6UDY/edit",
 )
-conn = st.connection("gsheets", type=GSheetsConnection)
+
+# Inicializa conexão de forma segura
+try:
+    conn = st.connection("gsheets", type=GSheetsConnection)
+except Exception as e:
+    st.error(f"Erro ao inicializar GSheetsConnection: {e}")
+    st.stop()
+
 # ---------------------------------------------------------------------------
-# 3. Carregamento & limpeza de dados
+# 3. PIPELINE DE LIMPEZA E TRATAMENTO DE DADOS (ETL MÍNIMO)
 # ---------------------------------------------------------------------------
 def _clean_numeric(series: pd.Series) -> pd.Series:
-    """Remove simbolos de moeda e converte para float."""
+    """Remove símbolos de moeda e formata strings para float numérico válido."""
     if series.dtype == object:
         series = (
             series.astype(str)
@@ -72,130 +72,120 @@ def _clean_numeric(series: pd.Series) -> pd.Series:
     return pd.to_numeric(series, errors="coerce")
 
 def _clean_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    """Aplica o Schema correto de dados necessário para os cálculos e KPIs."""
     df = df.copy()
+    
+    # Padronização de colunas numéricas críticas
     numeric_cols = [
-        "Valor Total", "Litros", "Preco por Litro",
-        "Quilometragem", "KM Atual", "KM Anterior",
+        "Valor Total", "Litros", "Preco por Litro", "Preço por Litro",
+        "Quilometragem", "KM Atual", "KM Anterior"
     ]
-    for col in numeric_cols:
-        if col in df.columns:
+    for col in df.columns:
+        if col in numeric_cols:
             df[col] = _clean_numeric(df[col])
-    # Tenta limpar Preco por Litro com acento tambem
-    for col_name in ["Preço por Litro", "Preco por Litro"]:
-        if col_name in df.columns:
-            df[col_name] = _clean_numeric(df[col_name])
+            
+    # Tratamento específico para Preço por Litro com acentuação alternada
+    if "Preço por Litro" in df.columns and "Preco por Litro" not in df.columns:
+        df["Preco por Litro"] = df["Preço por Litro"]
+
+    # Normalização de Datas
     if "Data" in df.columns:
         df["Data"] = pd.to_datetime(df["Data"], dayfirst=True, errors="coerce").dt.normalize()
+        
     return df
 
 @st.cache_data(ttl=300)
 def load_sheet_data() -> pd.DataFrame:
+    """Consome a API do Google Sheets aplicando Cache inteligente de 5 minutos."""
     try:
         df = conn.read(spreadsheet=SHEET_URL, ttl=0)
         if df is None or df.empty:
             return pd.DataFrame()
         return _clean_dataframe(df)
     except Exception as exc:
-        st.error(f"Falha ao conectar a planilha: {exc}")
+        st.error(f"Falha crítica ao conectar ou ler a planilha do Google: {exc}")
         return pd.DataFrame()
 
+def achar_col(df, *nomes):
+    """Mapeia dinamicamente colunas com variações de acentuação e caixa."""
+    for n in nomes:
+        if n in df.columns:
+            return n
+    return None
+
+def selectbox_col(df, target_col, label, unique_key):
+    """Gera um widget selectbox dinâmico isolando escopo para evitar duplicações."""
+    if df is not None and not df.empty and target_col and target_col in df.columns:
+        opts = ["Todos"] + sorted(df[target_col].dropna().unique().tolist())
+        return st.sidebar.selectbox(label, opts, key=unique_key)
+    return st.sidebar.selectbox(label, ["Todos"], key=unique_key)
+
 # ---------------------------------------------------------------------------
-# 4. Sidebar - Navegacao & autenticacao
+# 4. SIDEBAR - NAVEGAÇÃO E AUTENTICAÇÃO DE ACESSO
 # ---------------------------------------------------------------------------
-# -- Sidebar: perfil e senha ------------------------------------------------
 st.sidebar.image("https://cdn-icons-png.flaticon.com/512/3408/3408506.png", width=90)
 st.sidebar.title("Gestão de Combustível")
-perfil = st.sidebar.selectbox("Modulo de Acesso", ["Motorista", "Gestor Administrativo"])
+
+perfil = st.sidebar.selectbox("Módulo de Acesso", ["Motorista", "Gestor Administrativo"])
+
 if "auth" not in st.session_state:
     st.session_state.auth = False
+
 if perfil == "Gestor Administrativo":
     senha = st.sidebar.text_input("Senha de Acesso", type="password")
-    if senha and senha == "admin123":
+    if senha == "admin123":
         st.session_state.auth = True
         st.sidebar.success("Acesso Autorizado")
     elif senha:
         st.session_state.auth = False
         st.sidebar.error("Senha incorreta")
+
 # ---------------------------------------------------------------------------
-# 5. Modulo Motorista
+# 5. MÓDULO MOTORISTA
 # ---------------------------------------------------------------------------
-# == Modulo Motorista =======================================================
 if perfil == "Motorista":
     st.title("Registro de Atividade")
-    st.markdown("Clique no botao abaixo para registrar um novo abastecimento.")
+    st.markdown("Clique no botão abaixo para registrar um novo abastecimento de frota.")
     formulario_url = st.secrets.get("form_url", "https://forms.gle/e3tVoSTAFGGU3T787")
-    st.link_button("ABRIR FORMULARIO DE ABASTECIMENTO", formulario_url)
-    st.info("Apos enviar o formulario, os dados serao processados pela central.")
+    st.link_button("ABRIR FORMULÁRIO DE ABASTECIMENTO", formulario_url)
+    st.info("Após enviar os dados no formulário externo, o banco de dados será atualizado centralizadamente.")
+
 # ---------------------------------------------------------------------------
-# 6. Modulo Gestor
+# 6. MÓDULO GESTOR (DASHBOARD ANALÍTICO COMPLETO)
 # ---------------------------------------------------------------------------
-# == Modulo Gestor ==========================================================
 else:
-    st.title("Painel de Controle Estrategico")
+    st.title("Painel de Controle Estratégico")
+    
     if not st.session_state.auth:
-        st.warning("Insira a senha para visualizar o painel.")
+        st.warning("Por favor, insira a credencial administrativa na barra lateral para visualizar os dados.")
         st.stop()
+        
     df = load_sheet_data()
+    
     if df.empty:
-        st.warning("Planilha vazia ou nao carregada. Verifique o conteudo.")
+        st.warning("Aviso: A base de dados da planilha retornou vazia. Verifique a URL ou o preenchimento das abas.")
         st.stop()
-    # Botao de atualizacao
-    if st.sidebar.button("Atualizar dados"):
+        
+    # Botão manual para forçar invalidação do cache de dados
+    if st.sidebar.button("Atualizar Dados da Planilha"):
         st.cache_data.clear()
         st.rerun()
-    # ── Filtros na sidebar ──────────────────────────────────────────────
-    # -- Descobrir nomes de colunas com ou sem acento -----------------------
-    def achar_col(df, *nomes):
-        for n in nomes:
-            if n in df.columns:
-                return n
-        return None
-    col_veic = achar_col(df, "Veiculo", "Veículo", "veiculo", "veículo")
-    col_plac = achar_col(df, "Placa", "placa")
-    col_comb = achar_col(df, "Tipo Combustivel", "Tipo Combustível", "Combustivel", "Combustível")
-    
-    # -- Filtros na sidebar -------------------------------------------------
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("### Filtros")
-    
-    def selectbox_col(df, col_veic, label, unique_key=None):
-    if df is not None and not df.empty and col_veic in df.columns:
-        opts = ["Todos"] + sorted(df[col_veic].dropna().unique().tolist())
-        return st.sidebar.selectbox(label, opts, key=unique_key)
-    else:
-        return st.sidebar.selectbox(label, ["Todos"], key=unique_key)
-    
         
-    # Veiculo
-    if "Veiculo" in df.columns:
-        opts_veic = ["Todos"] + sorted(df["Veiculo"].dropna().unique().tolist())
-    elif "Veículo" in df.columns:
-        opts_veic = ["Todos"] + sorted(df["Veículo"].dropna().unique().tolist())
-    else:
-        opts_veic = ["Todos"]
-    filtro_veiculo = st.sidebar.selectbox("Veiculo", opts_veic)
-    def selectbox_col(col_veic, label, unique_key=None):
-            if col_veic:
-                opts = ["Todos"] + sorted(df[col_veic].dropna().unique().tolist())
-                return st.sidebar.selectbox(label, opts, key=unique_key)
-    # Placa
-    if "Placa" in df.columns:
-        opts_placa = ["Todos"] + sorted(df["Placa"].dropna().unique().tolist())
-    else:
-        opts_placa = ["Todos"]
-    filtro_placa = st.sidebar.selectbox("Placa", opts_placa)
-    fv = selectbox_col(col_veic, "Veiculo", unique_key="filtro_veiculo_principal")
-    fp = selectbox_col(col_plac, "Placa", unique_key="filtro_placa_principal")
-    fc = selectbox_col(col_comb, "Combustivel", unique_key="filtro_combustivel_principal")
+    # Mapeamento Inteligente de colunas flexíveis da Planilha do Cliente
+    col_veic = achar_col(df, "Veiculo", "Veículo", "veiculo", "veículo")
+    col_plac = achar_col(df, "Placa", "placa", "PLACA")
+    col_comb = achar_col(df, "Tipo Combustivel", "Tipo Combustível", "Combustivel", "Combustível", "combustivel")
     
-    # Combustivel
-    if "Tipo Combustivel" in df.columns:
-        opts_comb = ["Todos"] + sorted(df[col_comb].dropna().unique().tolist())         
-    else:
-        opts_comb = ["Todos"]
-    filtro_combust = st.sidebar.selectbox("Combustivel", opts_comb)
+    # Interface de Filtros na Sidebar
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### Filtros de Busca")
     
-    # Periodo de datas
+    # Chamadas únicas e limpas da função construtora com chaves estritas
+    fv = selectbox_col(df, col_veic, "Filtrar por Veículo", unique_key="sb_veiculo")
+    fp = selectbox_col(df, col_plac, "Filtrar por Placa", unique_key="sb_placa")
+    fc = selectbox_col(df, col_comb, "Filtrar por Combustível", unique_key="sb_combustivel")
+    
+    # Tratamento do Filtro de Intervalo Temporal (Período)
     filtro_periodo = None
     if "Data" in df.columns:
         datas_validas = df["Data"].dropna()
@@ -203,75 +193,104 @@ else:
             data_min = datas_validas.min().date()
             data_max = datas_validas.max().date()
             filtro_periodo = st.sidebar.date_input(
-                "Periodo",
+                "Período de Análise",
                 value=(data_min, data_max),
                 min_value=data_min,
                 max_value=data_max,
             )
-    # ── Aplicar filtros ─────────────────────────────────────────────────
-    # -- Aplicar filtros ----------------------------------------------------
+
+    # ---------------------------------------------------------------------------
+    # 7. EXECUÇÃO DO MOTOR DE FILTRAGEM (PANDAS QUERY ENGINE)
+    # ---------------------------------------------------------------------------
     df_f = df.copy()
-    if filtro_veiculo != "Todos" and col_veic and col_veic in df_f.columns:
-        df_f = df_f[df_f[col_veic] == filtro_veiculo]
-    if filtro_placa != "Todos" and "Placa" in df_f.columns:
-        df_f = df_f[df_f["Placa"] == filtro_placa]
-    if filtro_combust != "Todos" and col_comb and col_comb in df_f.columns:
-        df_f = df_f[df_f[col_comb] == filtro_combust]
+    
+    if fv != "Todos" and col_veic:
+        df_f = df_f[df_f[col_veic] == fv]
+        
+    if fp != "Todos" and col_plac:
+        df_f = df_f[df_f[col_plac] == fp]
+        
+    if fc != "Todos" and col_comb:
+        df_f = df_f[df_f[col_comb] == fc]
+        
     if filtro_periodo and "Data" in df_f.columns and len(filtro_periodo) == 2:
         d0 = pd.Timestamp(filtro_periodo[0])
         d1 = pd.Timestamp(filtro_periodo[1])
         df_f = df_f[(df_f["Data"] >= d0) & (df_f["Data"] <= d1)]
+        
+    # Limpa linhas fantasmas sem dados fundamentais para métricas
     if "Data" in df_f.columns and "Valor Total" in df_f.columns:
         df_f = df_f.dropna(subset=["Data", "Valor Total"]).copy()
-    # ── Tabela filtrada ─────────────────────────────────────────────────
-    st.subheader(f"Registros filtrados  —  {len(df_f)} abastecimentos")
-    # -- Tabela e download --------------------------------------------------
+
+    # ---------------------------------------------------------------------------
+    # 8. RENDERIZAÇÃO DA VISUALIZAÇÃO DOS DADOS
+    # ---------------------------------------------------------------------------
+    st.subheader(f"Registros Filtrados — {len(df_f)} Abastecimentos Encontrados")
     st.dataframe(df_f, use_container_width=True)
-    # ── Botao de download ───────────────────────────────────────────────
+    
+    # Exportação de Dados em formato Amigável para Excel/BR (; e ,)
     csv_bytes = df_f.to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig")
     st.download_button(
-        label="Baixar planilha filtrada (.csv)",
+        label="📥 Baixar Planilha Filtrada (.CSV)",
         data=csv_bytes,
-        file_name="frota_filtrada.csv",
+        file_name="gestao_frota_filtrada.csv",
         mime="text/csv",
     )
+    
     st.markdown("---")
-    # ── KPIs ───────────────────────────────────────────────────────────
+    
+    # ---------------------------------------------------------------------------
+    # 9. CENTRAL DE KPIS COMPORTAMENTAIS
+    # ---------------------------------------------------------------------------
     has_v = "Valor Total" in df_f.columns
     has_l = "Litros" in df_f.columns
+    
     k1, k2, k3, k4 = st.columns(4)
+    
     if has_v:
         total_gasto = df_f["Valor Total"].sum()
         k1.metric("Gasto Total", f"R$ {total_gasto:,.2f}")
+    else:
+        k1.metric("Gasto Total", "R$ 0,00")
+        
     if has_l:
         total_litros = df_f["Litros"].sum()
-        k2.metric("Total Litros", f"{total_litros:,.1f} L")
-    k3.metric("Abastecimentos", len(df_f))
+        k2.metric("Total Litros Consumidos", f"{total_litros:,.1f} L")
+    else:
+        k2.metric("Total Litros Consumidos", "0.0 L")
+        
+    k3.metric("Qtd Abastecimentos", len(df_f))
+    
     if has_v and has_l and df_f["Litros"].sum() > 0:
         custo_medio = df_f["Valor Total"].sum() / df_f["Litros"].sum()
-        k4.metric("Custo Medio / L", f"R$ {custo_medio:,.2f}")
+        k4.metric("Preço Médio Pago por Litro", f"R$ {custo_medio:,.2f}")
+    else:
+        k4.metric("Preço Médio Pago por Litro", "R$ 0,00")
+        
     st.markdown("---")
-    # ── Graficos ────────────────────────────────────────────────────────
-    # -- Graficos -----------------------------------------------------------
+
+    # ---------------------------------------------------------------------------
+    # 10. BLOCO DE BUSINESS INTELLIGENCE (GRÁFICOS PLOTLY)
+    # ---------------------------------------------------------------------------
     if "Data" in df_f.columns and has_v and not df_f.empty:
         col_left, col_right = st.columns([2, 1])
-        # Grafico 1: barras por DIA
+        
+        # G1: Evolução Temporal de Gastos Diários
         with col_left:
             diario = (
                 df_f.groupby(df_f["Data"].dt.date)["Valor Total"]
                 .sum()
                 .reset_index()
                 .rename(columns={"Data": "Dia"})
-                .sort_values("Dia")
             )
-            diario.columns = ["Dia", "Valor Total"]
             diario["Dia"] = diario["Dia"].astype(str)
             diario = diario.sort_values("Dia")
+            
             fig1 = px.bar(
                 diario,
                 x="Dia",
                 y="Valor Total",
-                title="Gastos por Dia",
+                title="Histórico de Gastos Diários (R$)",
                 color="Valor Total",
                 color_continuous_scale="Teal",
                 template="plotly_dark",
@@ -286,22 +305,24 @@ else:
             )
             fig1.update_traces(texttemplate="R$ %{y:,.2f}", textposition="outside")
             st.plotly_chart(fig1, use_container_width=True)
-        # Grafico 2: pizza por combustivel
+            
+        # G2: Market Share Interno por Tipo de Combustível
         with col_right:
-            if col_comb and col_comb in df_f.columns:
+            if col_comb and col_comb in df_f.columns and not df_f[col_comb].empty:
                 pc = df_f.groupby(col_comb)["Valor Total"].sum().reset_index()
                 fig2 = px.pie(
                     pc,
                     names=col_comb,
                     values="Valor Total",
-                    title="Gasto por Combustivel",
+                    title="Distribuição por Combustível",
                     hole=0.4,
                     color_discrete_sequence=px.colors.sequential.Teal,
                     template="plotly_dark",
                 )
                 fig2.update_traces(textinfo="percent+label")
                 st.plotly_chart(fig2, use_container_width=True)
-        # Grafico 3: barras por veiculo
+                
+        # G3: Análise de Alocação de Recursos por Unidade Móvel (Veículo)
         if col_veic and col_veic in df_f.columns:
             pv = (
                 df_f.groupby(col_veic)["Valor Total"]
@@ -313,16 +334,19 @@ else:
                 pv,
                 x=col_veic,
                 y="Valor Total",
-                title="Gasto por Veiculo",
-                color=col_veic,
+                title="Despesa Total por Veículo da Frota",
+                color="Valor Total",
+                color_continuous_scale="Teal",
                 template="plotly_dark",
             )
             fig3.update_layout(
+                xaxis_title="Veículo",
+                yaxis_title="Gasto Acumulado (R$)",
                 yaxis_tickprefix="R$ ",
                 yaxis_tickformat=",.2f",
-                showlegend=False,
+                coloraxis_showscale=False,
             )
             fig3.update_traces(texttemplate="R$ %{y:,.2f}", textposition="outside")
             st.plotly_chart(fig3, use_container_width=True)
     else:
-        st.info("Nenhum dado disponivel para os filtros selecionados.")
+        st.info("💡 Sem dados volumétricos suficientes para gerar gráficos comerciais neste intervalo.")
