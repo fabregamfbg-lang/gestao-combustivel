@@ -177,18 +177,14 @@ else:
     fv = selectbox_col(col_veic, "Veiculo", unique_key="filtro_veiculo_principal")
     fp = selectbox_col(col_plac, "Placa", unique_key="filtro_placa_principal")
     fc = selectbox_col(col_comb, "Combustivel", unique_key="filtro_combustivel_principal")
+    
     # Combustivel
     if "Tipo Combustivel" in df.columns:
-        col_comb = "Tipo Combustivel"
-    elif "Tipo Combustível" in df.columns:
-        col_comb = "Tipo Combustível"
-    else:
-        col_comb = None
-    if col_comb:
-        opts_comb = ["Todos"] + sorted(df[col_comb].dropna().unique().tolist())
+        opts_comb = ["Todos"] + sorted(df[col_comb].dropna().unique().tolist())         
     else:
         opts_comb = ["Todos"]
     filtro_combust = st.sidebar.selectbox("Combustivel", opts_comb)
+    
     # Periodo de datas
     filtro_periodo = None
     if "Data" in df.columns:
