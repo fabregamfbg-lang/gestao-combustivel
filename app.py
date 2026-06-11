@@ -164,10 +164,10 @@ else:
     else:
         opts_veic = ["Todos"]
     filtro_veiculo = st.sidebar.selectbox("Veiculo", opts_veic)
-    def selectbox_col(col, label):
+    def selectbox_col(col_veic, label, unique_key=None):
         if col:
             opts = ["Todos"] + sorted(df[col].dropna().unique().tolist())
-            return st.sidebar.selectbox(label, opts)
+            return st.sidebar.selectbox(label, opts, key=unique_key)
         return "Todos"
     # Placa
     if "Placa" in df.columns:
@@ -175,7 +175,7 @@ else:
     else:
         opts_placa = ["Todos"]
     filtro_placa = st.sidebar.selectbox("Placa", opts_placa)
-    fv = selectbox_col(col_veic, "Veiculo")
+    fv = selectbox_col(col_veic, "Veiculo", unique_key="filtro_veiculo_principal")
     fp = selectbox_col(col_plac, "Placa")
     fc = selectbox_col(col_comb, "Combustivel")
     # Combustivel
