@@ -8,7 +8,7 @@ from streamlit_gsheets import GSheetsConnection
 # ---------------------------------------------------------------------------
 st.set_page_config(
     page_title="Gestão de Combustível",
-    page_icon="🚚",
+    page_icon="⛽",
     layout="wide",
     initial_sidebar_state="expanded",
 )
