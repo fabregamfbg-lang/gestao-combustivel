@@ -165,10 +165,9 @@ else:
         opts_veic = ["Todos"]
     filtro_veiculo = st.sidebar.selectbox("Veiculo", opts_veic)
     def selectbox_col(col_veic, label, unique_key=None):
-    if col_veic:
-        # Change df[col] to df[col_veic]
-        opts = ["Todos"] + sorted(df[col_veic].dropna().unique().tolist())
-        return st.sidebar.selectbox(label, opts, key=unique_key)
+    if col_veic:  #  4 spaces in
+        opts = ["Todos"] + sorted(df[col_veic].dropna().unique().tolist())  #  8 spaces in
+        return st.sidebar.selectbox(label, opts, key=unique_key)  #  8 spaces in
     # Placa
     if "Placa" in df.columns:
         opts_placa = ["Todos"] + sorted(df["Placa"].dropna().unique().tolist())
