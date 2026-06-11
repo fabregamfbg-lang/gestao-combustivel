@@ -165,7 +165,7 @@ else:
         opts_veic = ["Todos"]
     filtro_veiculo = st.sidebar.selectbox("Veiculo", opts_veic)
     def selectbox_col(col_veic, label, unique_key=None):
-        if col:
+        if col_veic:
             opts = ["Todos"] + sorted(df[col].dropna().unique().tolist())
             return st.sidebar.selectbox(label, opts, key=unique_key)
         return "Todos"
