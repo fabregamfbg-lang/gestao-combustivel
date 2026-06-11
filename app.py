@@ -4,7 +4,7 @@ import plotly.express as px
 from streamlit_gsheets import GSheetsConnection
 
 # ---------------------------------------------------------------------------
-# 1️⃣ Page configuration (modern dark corporate theme)
+# 1️⃣ Configuração da página
 # ---------------------------------------------------------------------------
 st.set_page_config(
     page_title="Frota Inteligente Pro",
@@ -13,70 +13,78 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Custom CSS for a premium look (glassmorphism, rounded cards)
-st.markdown(
-    """
+st.markdown("""
     <style>
-        .main {background-color: #0f172a;}
-        .stMetric {background-color: #1e293b; padding: 20px; border-radius: 15px; border: 1px solid #334155;}
-        .stButton>button {background-color: #10b981; color: white; border-radius: 10px; width: 100%;}
-        .stTextInput div div input {background-color: #1e293b; color: white; border-radius: 10px;}
-        .css-1cpxqw2 {background: rgba(255,255,255,0.05); backdrop-filter: blur(8px); border-radius: 12px;}
+        .main { background-color: #0f172a; }
+        [data-testid="stMetric"] {
+            background-color: #1e293b;
+            padding: 18px 22px;
+            border-radius: 14px;
+            border: 1px solid #334155;
+        }
+        [data-testid="stMetricValue"] { font-size: 1.6rem !important; }
+        .stButton > button {
+            background-color: #10b981;
+            color: white;
+            border-radius: 10px;
+            width: 100%;
+            font-weight: 600;
+        }
+        .stDownloadButton > button {
+            background-color: #3b82f6;
+            color: white;
+            border-radius: 10px;
+            width: 100%;
+            font-weight: 600;
+        }
+        [data-testid="stSidebar"] { background-color: #0f172a; }
+        .block-container { padding-top: 1.5rem; }
     </style>
-    """,
-    unsafe_allow_html=True,
-)
+""", unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
-# 2️⃣ Centralised constants & Secrets
+# 2️⃣ Constantes & Secrets
 # ---------------------------------------------------------------------------
-# Store the Google Sheet URL in Streamlit secrets (recommended for production)
-# In local testing you can still fall back to a hard‑coded placeholder.
 SHEET_URL = st.secrets.get(
     "gsheets_url",
     "https://docs.google.com/spreadsheets/d/1900KpIS6XXANllpWSqqVaUFkUFYXcvcGXW2cf3V6UDY/edit",
 )
 
-# Initialise the connection once (must be before any function that uses it)
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 # ---------------------------------------------------------------------------
-# 3️⃣ Data loading & cleaning utilities (cached for performance)
+# 3️⃣ Carregamento & limpeza de dados
 # ---------------------------------------------------------------------------
 def _clean_numeric(series: pd.Series) -> pd.Series:
-    """Strip currency symbols, thousand separators and convert to float."""
+    """Remove símbolos de moeda e converte para float."""
     if series.dtype == object:
         series = (
             series.astype(str)
-            .str.replace(r"[R$\s]", "", regex=True)   # remove R$ e espaços
-            .str.replace(".", "", regex=False)          # remove separador de milhar
-            .str.replace(",", ".", regex=False)         # vírgula → ponto decimal
+            .str.replace(r"[R$\s]", "", regex=True)
+            .str.replace(".", "", regex=False)
+            .str.replace(",", ".", regex=False)
         )
     return pd.to_numeric(series, errors="coerce")
 
 
 def _clean_dataframe(df: pd.DataFrame) -> pd.DataFrame:
-    """Normalise known column types so calculations never fail."""
     df = df.copy()
-
-    # Colunas numéricas que podem vir como texto
-    numeric_cols = ["Valor Total", "Litros", "Preço por Litro", "Quilometragem", "KM Atual", "KM Anterior"]
+    numeric_cols = [
+        "Valor Total", "Litros", "Preço por Litro",
+        "Quilometragem", "KM Atual", "KM Anterior",
+    ]
     for col in numeric_cols:
         if col in df.columns:
             df[col] = _clean_numeric(df[col])
 
-    # Coluna de data
     if "Data" in df.columns:
-        df["Data"] = pd.to_datetime(df["Data"], dayfirst=True, errors="coerce")
+        df["Data"] = pd.to_datetime(df["Data"], dayfirst=True, errors="coerce").dt.normalize()
 
     return df
 
 
-@st.cache_data(ttl=300)  # cache por 5 minutos
+@st.cache_data(ttl=300)
 def load_sheet_data() -> pd.DataFrame:
-    """Lê a planilha e retorna um DataFrame limpo.
-    Retorna DataFrame vazio em caso de falha.
-    """
     try:
         df = conn.read(spreadsheet=SHEET_URL, ttl=0)
         if df is None or df.empty:
@@ -87,13 +95,12 @@ def load_sheet_data() -> pd.DataFrame:
         return pd.DataFrame()
 
 # ---------------------------------------------------------------------------
-# 4️⃣ Sidebar – navigation & authentication
+# 4️⃣ Sidebar – Navegação & autenticação
 # ---------------------------------------------------------------------------
-st.sidebar.image("https://cdn-icons-png.flaticon.com/512/3408/3408506.png", width=100)
+st.sidebar.image("https://cdn-icons-png.flaticon.com/512/3408/3408506.png", width=90)
 st.sidebar.title("Frota Inteligente")
 perfil = st.sidebar.selectbox("Módulo de Acesso", ["Motorista", "Gestor Administrativo"])
 
-# Simple password handling – stored in session state to avoid re‑prompting
 if "auth" not in st.session_state:
     st.session_state.auth = False
 
@@ -103,37 +110,69 @@ if perfil == "Gestor Administrativo":
         st.session_state.auth = True
         st.sidebar.success("✅ Acesso Autorizado")
     elif senha:
+        st.session_state.auth = False
         st.sidebar.error("❌ Senha incorreta")
 
 # ---------------------------------------------------------------------------
-# 5️⃣ Main application logic
+# 5️⃣ Módulo Motorista
 # ---------------------------------------------------------------------------
 if perfil == "Motorista":
     st.title("⛽ Registro de Atividade")
     st.markdown("Clique no botão abaixo para registrar um novo abastecimento.")
-    # Link to Google Form – keep URL in secrets for easy change
-    formulario_url = st.secrets.get(
-        "form_url",
-        "https://forms.gle/e3tVoSTAFGGU3T787",
-    )
+    formulario_url = st.secrets.get("form_url", "https://forms.gle/e3tVoSTAFGGU3T787")
     st.link_button("ABRIR FORMULÁRIO DE ABASTECIMENTO", formulario_url)
     st.info("🛈 Após enviar o formulário, os dados serão processados pela central.")
+
+# ---------------------------------------------------------------------------
+# 6️⃣ Módulo Gestor
+# ---------------------------------------------------------------------------
 else:
     st.title("📊 Painel de Controle Estratégico")
+
     if not st.session_state.auth:
         st.warning("🔐 Insira a senha para visualizar o painel.")
-    else:
-        df = load_sheet_data()
-        if df.empty:
-            st.warning("⚠️ Planilha vazia ou não carregada. Verifique o conteúdo.")
-        else:
-            st.success(f"📥 Dados carregados – {len(df)} linhas.")
-            st.dataframe(df, use_container_width=True)
+        st.stop()
 
-            # -------------------------------------------------------------------
-            # Métricas principais
-            # -------------------------------------------------------------------
-            if "Valor Total" in df.columns:
+    df = load_sheet_data()
+
+    if df.empty:
+        st.warning("⚠️ Planilha vazia ou não carregada.")
+        st.stop()
+
+    # ── Botão para forçar atualização dos dados ──────────────────────────
+    if st.sidebar.button("🔄 Atualizar dados"):
+        st.cache_data.clear()
+        st.rerun()
+
+    # ── Filtros na sidebar ───────────────────────────────────────────────
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### 🔍 Filtros")
+
+    # Veículo
+    veiculos = ["Todos"] + sorted(df["Veículo"].dropna().unique().tolist()) if "Veículo" in df.columns else ["Todos"]
+    filtro_veiculo = st.sidebar.selectbox("🚗 Veículo", veiculos)
+
+    # Placa
+    placas = ["Todos"] + sorted(df["Placa"].dropna().unique().tolist()) if "Placa" in df.columns else ["Todos"]
+    filtro_placa = st.sidebar.selectbox("🔢 Placa", placas)
+
+    # Combustível
+    combust = ["Todos"] + sorted(df["Tipo Combustível"].dropna().unique().tolist()) if "Tipo Combustível" in df.columns else ["Todos"]
+    filtro_combust = st.sidebar.selectbox("⛽ Combustível", combust)
+
+    # Período
+    if "Data" in df.columns:
+        datas_validas = df["Data"].dropna()
+        if not datas_validas.empty:
+            data_min = datas_validas.min().date()
+            data_max = datas_validas.max().date()
+            filtro_periodo = st.sidebar.date_input(
+                "📅 Período",
+                value=(data_min, data_max),
+                min_value=data_min,
+                max_value=data_max,
+            )
+        else:
                 total_gasto = pd.to_numeric(df["Valor Total"], errors="coerce").sum()
                 col1, col2 = st.columns(2)
                 col1.metric("Gasto Total", f"R$ {total_gasto:,.2f}")
